@@ -89,9 +89,6 @@ def dir_object(name):
     if key.startswith('_'): continue
     if not getattr(value, '__doc__'): continue
     if all is not None and key not in all: continue
-    if isinstance(value, types.ModuleType) and value.__name__.startswith(prefix):
-        result.append(key)
-        continue
     if prefix is not None and getattr(value, '__module__', None) != prefix:
       continue
     result.append(key)

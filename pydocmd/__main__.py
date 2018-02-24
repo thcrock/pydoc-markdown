@@ -220,6 +220,7 @@ def main():
     fname = os.path.join(config['gens_dir'], fname)
     makedirs(os.path.dirname(fname))
     with open(fname, 'w') as fp:
+      print('[TOC]', file=fp)
       for section in doc.sections:
         section.render(fp)
 
