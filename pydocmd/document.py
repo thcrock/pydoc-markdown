@@ -59,7 +59,7 @@ class Section(object):
 
     s = '#' * self.depth
     
-    print('{s} [{title}]({id})\n'
+    print('{s} {title} []({id})\n'
       .format(s = s, id = self.identifier, title = self.title),
       file = stream)
     print(self.content, file=stream)
@@ -145,8 +145,7 @@ class Index(object):
     section = Section(doc, *args, **kwargs)
     if section.identifier:
       if section.identifier in self.sections:
-        raise ValueError('section identifier {!r} already used'
-          .format(section.identifier))
+          return section
       self.sections[section.identifier] = section
     doc.sections.append(section)
     return section
