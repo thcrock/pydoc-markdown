@@ -49,9 +49,14 @@ def read_config():
 
 
 def default_config(config):
+  args = parser.parse_args()
   config.setdefault('docs_dir', 'sources')
   config.setdefault('gens_dir', '_build/pydocmd')
   config.setdefault('site_dir', '_build/site')
+  if args.command == 'simple':
+      config.setdefault('headers', 'markdown')
+  else:
+      config.setdefault('headers', 'html')
   config.setdefault('theme', 'readthedocs')
   config.setdefault('loader', 'pydocmd.loader.PythonLoader')
   config.setdefault('preprocessor', 'pydocmd.preprocessor.Preprocessor')
@@ -103,7 +108,7 @@ def copy_source_files(config):
   log('Started copying source files...')
   for root, dirs, files in os.walk(config['docs_dir']):
     rel_root = os.path.relpath(root, config['docs_dir'])
-    for fname in filter(lambda f: f.endswith('.md'), files):
+    for fname in files:
       dest_fname = os.path.join(config['gens_dir'], rel_root, fname)
       makedirs(os.path.dirname(dest_fname))
       shutil.copyfile(os.path.join(root, fname), dest_fname)
@@ -147,6 +152,27 @@ def main():
     parser.error('need at least one argument')
 
   config = read_config() if args.command != 'simple' else default_config({})
+
+  # Parse options.
+  if args.command in ('generate', 'simple'):
+    modspecs = []
+    it = iter(args.subargs)
+    while True:
+      try: value = next(it)
+      except StopIteration: break
+      if value == '-c':
+        try: value = next(it)
+        except StopIteration: parser.error('missing value to option -c')
+        key, value = value.partition('=')[::2]
+        if value.startswith('['):
+          if not value.endswith(']'):
+            parser.error('invalid option value: {!r}'.format(value))
+            value = value[1:-1].split(',')
+        config[key] = value
+      else:
+        modspecs.append(value)
+    args.subargs = modspecs
+
   loader = import_object(config['loader'])(config)
   preproc = import_object(config['preprocessor'])(config)
 
@@ -179,8 +205,12 @@ def main():
       def create_sections(name, level):
         if level > expand_depth:
           return
-        index.new_section(doc, name, depth=depth + level)
-        for sub in dir_object(name):
+        index.new_section(doc, name, depth=depth + level, header_type=config.get('headers', 'html'))
+        sort_order = config.get('sort')
+        if sort_order not in ('line', 'name'):
+          sort_order = 'line'
+        need_docstrings = 'docstring' in config.get('filter', ['docstring'])
+        for sub in dir_object(name, sort_order, need_docstrings):
           sub = name + '.' + sub
           sec = create_sections(sub, level + 1)
 
@@ -235,3 +265,7 @@ def main():
     return subprocess.call(args)
   except KeyboardInterrupt:
     return signal.SIGINT
+
+
+if __name__ == '__main__':
+  main()

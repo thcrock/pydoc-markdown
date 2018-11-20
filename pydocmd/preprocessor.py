@@ -37,7 +37,6 @@ class Preprocessor(object):
     """
     Preprocess the contents of *section*.
     """
-
     lines = []
     codeblock_opened = False
     current_section = None
@@ -66,15 +65,15 @@ class Preprocessor(object):
       style = None
     if style:
       #                  | ident  | types     | doc
-      line = re.sub(r'\s*([^\\]+)(\s*\(.+\))?:(.*)$', style, line)
+      line = re.sub(r'\s*([^\\:]+)(\s*\(.+\))?:(.*)$', style, line)
 
     return line, current_section
 
   def _preprocess_refs(self, content):
     # TODO: Generate links to the referenced symbols.
     def handler(match):
-      ref = match.group(1)
-      parens = match.group(2) or ''
+      ref = match.group('ref')
+      parens = match.group('parens') or ''
       has_trailing_dot = False
       if not parens and ref.endswith('.'):
         ref = ref[:-1]
@@ -82,5 +81,5 @@ class Preprocessor(object):
       result = '`{}`'.format(ref + parens)
       if has_trailing_dot:
         result += '.'
-      return result
-    return re.sub('\B#([\w\d\._]+)(\(\))?', handler, content)
+      return (match.group('prefix') or '') + result
+    return re.sub('(?P<prefix>^| |\t)#(?P<ref>[\w\d\._]+)(?P<parens>\(\))?', handler, content)

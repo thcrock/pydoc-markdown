@@ -6,8 +6,7 @@ Pydocmd uses [MkDocs] and extended [Markdown] syntax to generate beautiful
 Python API documentation.
 
   [MkDocs]: http://www.mkdocs.org/
-  [Markdown]: https://pythonhosted.org/Markdown/
-  [Extension API]: https://niklasrosenstein.github.io/pydoc-markdown/extensions/loader/
+  [Markdown]: https://python-markdown.github.io/
   [Keras]: https://keras.io/
 
 __Todo__
@@ -73,6 +72,15 @@ theme:    readthedocs
 loader:   pydocmd.loader.PythonLoader
 preprocessor: pydocmd.preprocessor.Preprocessor
 
+# Whether to output headers as markdown or HTML.  Used to workaround
+# https://github.com/NiklasRosenstein/pydoc-markdown/issues/11.  The default is
+# to generate HTML with unique and meaningful id tags, which can't be done with
+# markdown.
+#
+# Note: if using the simple generator mode, this will default to 'markdown'
+# instead of 'html'.
+headers: html
+
 # Additional search path for your Python module. If you use Pydocmd from a
 # subdirectory of your project (eg. docs/), you may want to add the parent
 # directory here.
@@ -101,9 +109,6 @@ elements to keep. If `X` is omitted, it will be assumed 1. Example:
 
 In order to append additional characters that are not included in the actual
 reference name, another hash-symbol can be used, like `#Signal#s`.
-
-**pydoc-markdown** can be extended to find other cross-references using the
-[Extension API].
 
 ### Sections
 
@@ -144,7 +149,28 @@ GitHub-style Markdown code-blocks with language annotations can be used.
 
 ## Changes
 
-### v2.0.2 (tip)
+### v2.0.5 (2018-11-15)
+
+- Now copies all files from the docs_dir (to include images etc.) (see #56)
+- Fix error with delayed imports changing dictionary size during iteration (see #57)
+- Add `headers` option which can be of value `'html'` or `'markdown'` (see #55)
+- Default `headers` option to `'markdown'` in `simple` mode (see #59)
+
+### v2.0.4 (2018-07-24)
+
+- Add `-c key=value` argument for `generate` and `simple` command
+- Add `filter=["docstring"]` option (#43)
+- Fix regex for detecting cross-references (#44)
+- Handle classes that don't define `__init__()` (PR#51)
+- Add support for reStructuredText Markup (eg. ``:class:`MyClass` ``) (PR#46, #1)
+- Handle `@property` functions (PR#50)
+
+### v2.0.3
+
+- Fix #41, #36, #31
+- Merged #39
+
+### v2.0.2 
 
 - Fix #25 -- Text is incorrectly rendered as code
 - Fix #26 -- Broken links for URLs with fragment identifiers
@@ -166,4 +192,4 @@ GitHub-style Markdown code-blocks with language annotations can be used.
 
 ---
 
-<p align="center">Copyright &copy; 2017  Niklas Rosenstein</p>
+<p align="center">Copyright &copy; 2017-2018  Niklas Rosenstein</p>

@@ -25,9 +25,14 @@ that name, but is not supposed to apply preprocessing.
 """
 
 from __future__ import print_function
-from .document import Section
 from .imp import import_object_with_scope
 import inspect
+import types
+
+function_types = (types.FunctionType, types.LambdaType, types.MethodType,
+  types.BuiltinFunctionType, types.BuiltinMethodType)
+if hasattr(types, 'UnboundMethodType'):
+  function_types += (types.UnboundMethodType,)
 
 
 def trim(docstring):
@@ -54,7 +59,6 @@ class PythonLoader(object):
   """
   Expects absolute identifiers to import with #import_object_with_scope().
   """
-
   def __init__(self, config):
     self.config = config
 
@@ -78,13 +82,22 @@ class PythonLoader(object):
       default_title = section.identifier
 
     section.title = getattr(obj, '__name__', default_title)
-    section.content = trim(getattr(obj, '__doc__', None) or '')
+    section.content = trim(get_docstring(obj))
     section.loader_context = {'obj': obj, 'scope': scope}
 
     # Add the function signature in a code-block.
     if callable(obj):
       sig = get_function_signature(obj, scope if inspect.isclass(scope) else None)
       section.content = '```python\n{}\n```\n'.format(sig) + section.content
+
+
+def get_docstring(function):
+  if hasattr(function, '__name__') or isinstance(function, property):
+    return function.__doc__ or ''
+  elif hasattr(function, '__call__'):
+    return function.__call__.__doc__ or ''
+  else:
+    return function.__doc__ or ''
 
 
 def get_function_signature(function, owner_class=None, show_module=False):
@@ -96,25 +109,35 @@ def get_function_signature(function, owner_class=None, show_module=False):
     name_parts.append(function.__module__)
   if owner_class:
     name_parts.append(owner_class.__name__)
-  name_parts.append(function.__name__)
+  if hasattr(function, '__name__'):
+    name_parts.append(function.__name__)
+  else:
+    name_parts.append(type(function).__name__)
+    name_parts.append('__call__')
+    function = function.__call__
   name = '.'.join(name_parts)
 
   if isclass:
-    function = function.__init__
+    function = getattr(function, '__init__', None)
   if hasattr(inspect, 'signature'):
     sig = str(inspect.signature(function))
   else:
-    argspec = inspect.getargspec(function)
-    # Generate the argument list that is separated by colons.
-    args = argspec.args[:]
-    if argspec.defaults:
-      offset = len(args) - len(argspec.defaults)
-      for i, default in enumerate(argspec.defaults):
-        args[i + offset] = '{}={!r}'.format(args[i + offset], argspec.defaults[i])
-    if argspec.varargs:
-      args.append('*' + argspec.varargs)
-    if argspec.keywords:
-      args.append('**' + argspec.keywords)
+    try:
+      argspec = inspect.getargspec(function)
+    except TypeError:
+      # handle Py2 classes that don't define __init__
+      args = ['self']
+    else:
+      # Generate the argument list that is separated by colons.
+      args = argspec.args[:]
+      if argspec.defaults:
+        offset = len(args) - len(argspec.defaults)
+        for i, default in enumerate(argspec.defaults):
+          args[i + offset] = '{}={!r}'.format(args[i + offset], argspec.defaults[i])
+      if argspec.varargs:
+        args.append('*' + argspec.varargs)
+      if argspec.keywords:
+        args.append('**' + argspec.keywords)
     sig = '(' + ', '.join(args) + ')'
 
   return name + sig

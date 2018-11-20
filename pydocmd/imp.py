@@ -22,6 +22,7 @@ This module provides utilities for importing Python objects by name.
 """
 
 import types
+import inspect
 
 
 def import_module(name):
@@ -77,19 +78,55 @@ def import_object_with_scope(name):
   return obj, scope
 
 
-def dir_object(name):
+def force_lazy_import(name):
+  """
+  Import any modules off of "name" by iterating a new list rather than a generator so that this
+  library works with lazy imports.
+  """
+  obj = import_object(name)
+  module_items = list(getattr(obj, '__dict__', {}).items())
+  for key, value in module_items:
+    if getattr(value, '__module__', None):
+        import_object(name + '.' + key)
+
+
+def dir_object(name, sort_order, need_docstrings=True):
   prefix = None
   obj = import_object(name)
   if isinstance(obj, types.ModuleType):
     prefix = obj.__name__
   all = getattr(obj, '__all__', None)
 
-  result = []
+  # Import any modules attached to this object so that this will work with lazy imports.  Otherwise
+  # the block below will fail because the object will change while it's being iterated.
+  force_lazy_import(name)
+
+  by_name = []
+  by_lineno = []
   for key, value in getattr(obj, '__dict__', {}).items():
+    if isinstance(value, (staticmethod, classmethod)):
+      value = value.__func__
     if key.startswith('_'): continue
-    if not getattr(value, '__doc__'): continue
-    if all is not None and key not in all: continue
+    if not hasattr(value, '__doc__'): continue
+
+    # If we have a type, we only want to skip it if it doesn't have
+    # any documented members.
+    if not (isinstance(value, type) and dir_object(name + '.' + key, sort_order, True)):
+      if need_docstrings and not value.__doc__: continue
+      if all is not None and key not in all: continue
+
     if prefix is not None and getattr(value, '__module__', None) != prefix:
       continue
-    result.append(key)
-  return result
+    if sort_order == 'line':
+      try:
+        by_lineno.append((key, inspect.getsourcelines(value)[1]))
+      except Exception:
+        # some members don't have (retrievable) line numbers (e.g., properties)
+        # so fall back to sorting those first, and by name
+        by_name.append(key)
+    else:
+      by_name.append(key)
+  by_name = sorted(by_name, key=lambda s: s.lower())
+  by_lineno = [key for key, lineno in sorted(by_lineno, key=lambda r: r[1])]
+
+  return by_name + by_lineno
